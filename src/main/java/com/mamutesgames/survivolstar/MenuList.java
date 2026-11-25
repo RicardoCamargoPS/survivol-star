@@ -53,10 +53,21 @@ final class MenuList {
         selected = Math.clamp(index, 0, Math.max(0, items.size() - 1));
     }
 
-    /** Move a seleção com volta nas pontas. */
+    /** Move a seleção pulando itens desabilitados, com volta nas pontas. */
     void move(int direction) {
-        if (!items.isEmpty()) {
-            selected = Math.floorMod(selected + direction, items.size());
+        for (int step = 1; step <= items.size(); step++) {
+            int candidate = Math.floorMod(selected + direction * step, items.size());
+            if (items.get(candidate).isEnabled()) {
+                selected = candidate;
+                return;
+            }
+        }
+    }
+
+    /** Se o item selecionado ficou desabilitado, seleciona o próximo habilitado. */
+    void ensureSelectable() {
+        if (!items.isEmpty() && !items.get(selected).isEnabled()) {
+            move(1);
         }
     }
 
@@ -65,13 +76,13 @@ final class MenuList {
         this.active = active;
     }
 
-    /** Índice da linha sob o ponto, ou -1. */
+    /** Índice da linha habilitada sob o ponto, ou -1. */
     int rowAt(double x, double y) {
         if (!laidOut || x < layoutLeft || x > layoutLeft + layoutWidth || y < layoutTop) {
             return -1;
         }
         int row = (int) ((y - layoutTop) / layoutRowHeight);
-        return row < items.size() ? row : -1;
+        return row < items.size() && items.get(row).isEnabled() ? row : -1;
     }
 
     /**
@@ -105,17 +116,19 @@ final class MenuList {
         layoutTop = top;
         layoutWidth = width;
         layoutRowHeight = rowHeight;
+        ensureSelectable();
 
         for (int i = 0; i < items.size(); i++) {
             MenuItem item = items.get(i);
             float y = top + i * rowHeight;
             float middle = y + rowHeight * 0.5f;
-            boolean isSelected = i == selected && active;
+            boolean enabled = item.isEnabled();
+            boolean isSelected = i == selected && active && enabled;
             if (isSelected) {
                 r.fill(left, y + 3f * s, width, rowHeight - 6f * s, GameRenderer.SELECTION, 0.88f);
                 r.fill(left, y + 3f * s, 4f * s, rowHeight - 6f * s, GameRenderer.ACCENT, 1f);
             }
-            int color = isSelected ? GameRenderer.CYAN : GameRenderer.TEXT;
+            int color = !enabled ? GameRenderer.DISABLED : isSelected ? GameRenderer.CYAN : GameRenderer.TEXT;
             String value = item.value();
             if (value == null) {
                 r.text(item.label(), FONT_SIZE * s, left + width * 0.5f, middle, color, 1f, 0.5f);
@@ -123,6 +136,11 @@ final class MenuList {
             }
             float size = FONT_SIZE * s * 0.85f;
             r.text(item.label(), size, left + pad, middle, color, 1f, 0f);
+            if (!item.isAdjustable()) {
+                // Detalhe informativo (ex.: data do save), em texto menor
+                r.text(value, FONT_SIZE * s * 0.68f, right - pad, middle, color, 1f, 1f);
+                continue;
+            }
             float valueLeft = right - width * VALUE_FRACTION;
             if (isSelected) {
                 r.text("<", size, valueLeft + pad, middle, GameRenderer.CYAN, 1f, 0f);

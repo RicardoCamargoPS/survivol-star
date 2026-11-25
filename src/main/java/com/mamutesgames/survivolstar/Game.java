@@ -1,5 +1,7 @@
 package com.mamutesgames.survivolstar;
 
+import com.mamutesgames.survivolstar.save.SaveGame;
+import com.mamutesgames.survivolstar.save.SaveStore;
 import com.mamutesgames.survivolstar.settings.GameSettings;
 import com.mamutesgames.survivolstar.settings.Resolution;
 import com.mamutesgames.survivolstar.settings.SettingsStore;
@@ -31,7 +33,8 @@ final class Game implements AutoCloseable {
     private enum State {
         SPLASH,
         TITLE,
-        SETTINGS
+        SETTINGS,
+        LOAD_GAME
     }
 
     private final long window;
@@ -40,6 +43,7 @@ final class Game implements AutoCloseable {
     private final GameSettings settings;
     private final List<Resolution> resolutions;
     private final SettingsMenu settingsMenu;
+    private final LoadGameMenu loadGameMenu;
     private State state = State.SPLASH;
     private int width;
     private int height;
@@ -62,6 +66,8 @@ final class Game implements AutoCloseable {
         settings = settingsStore.load();
         resolutions = findResolutions();
         settingsMenu = new SettingsMenu(settings, this::applySettings, () -> resolutions,
+                () -> state = State.TITLE);
+        loadGameMenu = new LoadGameMenu(new SaveStore(GameInfo.savesDirectory()), this::gameLoaded,
                 () -> state = State.TITLE);
         applyVideo();
     }
@@ -96,6 +102,7 @@ final class Game implements AutoCloseable {
                 }
             }
             case SETTINGS -> settingsMenu.keyPressed(key, repeat);
+            case LOAD_GAME -> loadGameMenu.keyPressed(key, repeat);
             case TITLE -> titleKey(key, repeat);
             default -> throw new IllegalStateException("Estado desconhecido: " + state);
         }
@@ -131,6 +138,14 @@ final class Game implements AutoCloseable {
             }
         } else if (state == State.SETTINGS) {
             settingsMenu.mouseMoved(x, y);
+        } else if (state == State.LOAD_GAME) {
+            loadGameMenu.mouseMoved(x, y);
+        }
+    }
+
+    void mouseRightClicked() {
+        if (state == State.LOAD_GAME) {
+            loadGameMenu.mouseRightClicked();
         }
     }
 
@@ -138,6 +153,7 @@ final class Game implements AutoCloseable {
         switch (state) {
             case SPLASH -> skipSplash();
             case SETTINGS -> settingsMenu.mouseClicked();
+            case LOAD_GAME -> loadGameMenu.mouseClicked();
             case TITLE -> {
                 int clickedOption = optionAt(mouseX, mouseY);
                 if (clickedOption >= 0) {
@@ -164,6 +180,10 @@ final class Game implements AutoCloseable {
             case SETTINGS -> {
                 renderer.drawBackground(width, height);
                 settingsMenu.draw(renderer, width, height);
+            }
+            case LOAD_GAME -> {
+                renderer.drawBackground(width, height);
+                loadGameMenu.draw(renderer, width, height);
             }
             default -> throw new IllegalStateException("Estado desconhecido: " + state);
         }
@@ -193,10 +213,19 @@ final class Game implements AutoCloseable {
                 settingsMenu.reset();
                 state = State.SETTINGS;
             }
-            case 2 -> statusMessage = "Carregar jogo - em desenvolvimento";
+            case 2 -> {
+                loadGameMenu.open();
+                state = State.LOAD_GAME;
+            }
             case 3 -> glfwSetWindowShouldClose(window, true);
             default -> throw new IllegalStateException("Opção de menu desconhecida: " + selectedOption);
         }
+    }
+
+    /** Jogo lido de um slot. A partida ainda não existe: por enquanto volta ao título avisando. */
+    private void gameLoaded(int slot, SaveGame game) {
+        state = State.TITLE;
+        statusMessage = "Jogo do slot " + slot + " carregado - partida em desenvolvimento";
     }
 
     // ---------------------------------------------------------------- configurações

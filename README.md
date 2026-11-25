@@ -31,8 +31,18 @@ o fundo permanece preto. Adicione uma imagem PNG nesse caminho para usá-la como
 - Mouse: passar sobre uma opção e clicar.
 - Esc: fechar o jogo.
 
-As opções de novo jogo e carregar jogo exibem uma mensagem de preparação; as respectivas
-telas e funcionalidades de jogo ainda não foram implementadas.
+A opção de novo jogo exibe uma mensagem de preparação; a partida ainda não foi implementada.
+
+## Carregar jogo
+
+Um painel com a lista dos 5 slots de jogo salvo, um por linha, com a data à direita. Slots
+vazios ficam em cinza e são pulados. Abaixo da lista aparece o progresso do slot selecionado
+(dificuldade, tempo de jogo e resumo).
+
+- Enter ou clique carregam o jogo; Delete ou botão direito apagam (pedindo confirmação);
+  Esc volta à tela de título.
+- Os saves ficam em `~/.survivolstar/saves/slot1.properties` a `slot5.properties`.
+- Enquanto a partida não existe, carregar volta ao título com um aviso.
 
 ## Configurações
 

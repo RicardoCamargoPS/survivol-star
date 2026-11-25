@@ -25,6 +25,8 @@ final class GameRenderer implements AutoCloseable {
     static final int TEXT = 0xF5F7FF;
     static final int CYAN = 0x54D8FF;
     static final int LABEL = 0x9CA8C0;
+    static final int DISABLED = 0x5C6378;
+    static final int WARNING = 0xFFC93C;
     static final int ACCENT = 0x38C7FF;
     static final int SELECTION = 0x0A1F30;
     static final int SHADE = 0x000008;
@@ -146,6 +148,12 @@ final class GameRenderer implements AutoCloseable {
     void fill(float x, float y, float width, float height, int color, float alpha) {
         drawRect(x, y, x + width, y + height, ((color >> 16) & 0xFF) / 255f, ((color >> 8) & 0xFF) / 255f,
                 (color & 0xFF) / 255f, alpha);
+    }
+
+    /** Painel translúcido com borda, o fundo das telas de menu. */
+    void panel(float x, float y, float width, float height, float s) {
+        fill(x, y, width, height, PANEL, 0.85f);
+        outline(x, y, width, height, 2f * s, OUTLINE, 0.8f);
     }
 
     /** Contorno de um retângulo, com a espessura para dentro. */

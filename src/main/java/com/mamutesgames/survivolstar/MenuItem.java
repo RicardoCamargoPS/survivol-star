@@ -12,14 +12,16 @@ final class MenuItem {
 
     private final String label;
     private final Supplier<String> value;
+    private final BooleanSupplier enabled;
     private final Runnable activate;
     private final IntConsumer adjust;
     private final boolean repeatable;
 
-    private MenuItem(String label, Supplier<String> value, Runnable activate, IntConsumer adjust,
-                     boolean repeatable) {
+    private MenuItem(String label, Supplier<String> value, BooleanSupplier enabled, Runnable activate,
+                     IntConsumer adjust, boolean repeatable) {
         this.label = label;
         this.value = value;
+        this.enabled = enabled;
         this.activate = activate;
         this.adjust = adjust;
         this.repeatable = repeatable;
@@ -27,7 +29,15 @@ final class MenuItem {
 
     /** Executa {@code action} ao confirmar. */
     static MenuItem action(String label, Runnable action) {
-        return new MenuItem(label, null, action, null, false);
+        return new MenuItem(label, null, () -> true, action, null, false);
+    }
+
+    /**
+     * Ação com um texto informativo à direita (ex.: data de um jogo salvo). Pode ficar
+     * desabilitada: aparece em cinza e é pulada na navegação.
+     */
+    static MenuItem detail(String label, Supplier<String> detail, BooleanSupplier enabled, Runnable action) {
+        return new MenuItem(label, detail, enabled, action, null, false);
     }
 
     /**
@@ -36,7 +46,7 @@ final class MenuItem {
      * @param adjust recebe -1 ou +1
      */
     static MenuItem option(String label, Supplier<String> value, IntConsumer adjust) {
-        return new MenuItem(label, value, () -> adjust.accept(1), adjust, true);
+        return new MenuItem(label, value, () -> true, () -> adjust.accept(1), adjust, true);
     }
 
     /** Opção que percorre uma lista de valores (com volta ao início). */
@@ -52,7 +62,7 @@ final class MenuItem {
     /** Opção liga/desliga; não repete ao segurar a tecla (a tela cheia piscaria). */
     static MenuItem toggle(String label, BooleanSupplier current, Consumer<Boolean> set) {
         IntConsumer flip = direction -> set.accept(!current.getAsBoolean());
-        return new MenuItem(label, () -> current.getAsBoolean() ? "Sim" : "Não",
+        return new MenuItem(label, () -> current.getAsBoolean() ? "Sim" : "Não", () -> true,
                 () -> flip.accept(1), flip, false);
     }
 
@@ -63,6 +73,10 @@ final class MenuItem {
     /** Valor exibido à direita, ou {@code null} para itens de ação. */
     String value() {
         return value == null ? null : value.get();
+    }
+
+    boolean isEnabled() {
+        return enabled.getAsBoolean();
     }
 
     boolean isAdjustable() {

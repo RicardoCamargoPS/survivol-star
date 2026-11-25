@@ -21,4 +21,9 @@ public final class GameInfo {
     public static Path settingsFile() {
         return dataDirectory().resolve("settings.properties");
     }
+
+    /** Pasta dos jogos salvos, um arquivo por slot. */
+    public static Path savesDirectory() {
+        return dataDirectory().resolve("saves");
+    }
 }

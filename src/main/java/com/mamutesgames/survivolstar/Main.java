@@ -62,8 +62,13 @@ public final class Main {
             });
             glfwSetScrollCallback(window, (handle, xOffset, yOffset) -> activeGame.scrolled(yOffset));
             glfwSetMouseButtonCallback(window, (handle, button, action, mods) -> {
-                if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS) {
+                if (action != GLFW_PRESS) {
+                    return;
+                }
+                if (button == GLFW_MOUSE_BUTTON_1) {
                     activeGame.mouseClicked();
+                } else if (button == GLFW_MOUSE_BUTTON_2) {
+                    activeGame.mouseRightClicked();
                 }
             });
 

@@ -339,8 +339,7 @@ final class SettingsMenu {
     }
 
     private void drawPanel(GameRenderer r, float x, float y, float w, float h, float s) {
-        r.fill(x, y, w, h, GameRenderer.PANEL, 0.85f);
-        r.outline(x, y, w, h, 2f * s, GameRenderer.OUTLINE, 0.8f);
+        r.panel(x, y, w, h, s);
 
         float cx = x + w * 0.5f;
         r.text(tab.title(), 34f * s, cx, y + 44f * s, GameRenderer.CYAN, 1f, 0.5f);
