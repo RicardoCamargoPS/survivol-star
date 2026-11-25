@@ -1,5 +1,6 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.render;
 
+import com.mamutesgames.survivolstar.GameInfo;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -17,26 +18,26 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.system.MemoryUtil.memAlloc;
 import static org.lwjgl.system.MemoryUtil.memFree;
 
-final class GameRenderer implements AutoCloseable {
+public final class GameRenderer implements AutoCloseable {
 
     private static final String BACKGROUND_RESOURCE = "/images/title-background.png";
 
     // Paleta compartilhada pelas telas (RGB)
-    static final int TEXT = 0xF5F7FF;
-    static final int CYAN = 0x54D8FF;
-    static final int LABEL = 0x9CA8C0;
-    static final int DISABLED = 0x5C6378;
-    static final int WARNING = 0xFFC93C;
-    static final int ACCENT = 0x38C7FF;
-    static final int SELECTION = 0x0A1F30;
-    static final int SHADE = 0x000008;
-    static final int PANEL = 0x05081A;
-    static final int OUTLINE = 0x99BFFF;
+    public static final int TEXT = 0xF5F7FF;
+    public static final int CYAN = 0x54D8FF;
+    public static final int LABEL = 0x9CA8C0;
+    public static final int DISABLED = 0x5C6378;
+    public static final int WARNING = 0xFFC93C;
+    public static final int ACCENT = 0x38C7FF;
+    public static final int SELECTION = 0x0A1F30;
+    public static final int SHADE = 0x000008;
+    public static final int PANEL = 0x05081A;
+    public static final int OUTLINE = 0x99BFFF;
 
     private final Map<String, TextTexture> textTextures = new HashMap<>();
     private final int backgroundTexture;
 
-    GameRenderer() {
+    public GameRenderer() {
         backgroundTexture = loadBackground();
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -44,12 +45,12 @@ final class GameRenderer implements AutoCloseable {
     }
 
     /** Fator de escala das telas em relação a 1280 × 720. */
-    static float scale(int width, int height) {
+    public static float scale(int width, int height) {
         return Math.max(0.65f, Math.min(width / 1280f, height / 720f));
     }
 
     /** Prepara a projeção em pixels e limpa a tela. */
-    void beginFrame(int width, int height) {
+    public void beginFrame(int width, int height) {
         glViewport(0, 0, width, height);
         useScreenProjection(width, height);
         glClearColor(0f, 0f, 0f, 1f);
@@ -98,7 +99,7 @@ final class GameRenderer implements AutoCloseable {
      *
      * @param angle giro do cubo, em graus
      */
-    void drawScene(int width, int height, float time, float angle) {
+    public void drawScene(int width, int height, float time, float angle) {
         for (float[] star : STARS) {
             float twinkle = 0.45f + 0.55f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + star[3]));
             fill(star[0] * width, star[1] * height, star[2], star[2], TEXT, twinkle);
@@ -148,7 +149,7 @@ final class GameRenderer implements AutoCloseable {
     }
 
     /** Imagem de fundo da tela de título (se existir), escurecida para o texto ficar legível. */
-    void drawBackground(int width, int height) {
+    public void drawBackground(int width, int height) {
         if (backgroundTexture != 0) {
             drawTexture(backgroundTexture, 0f, 0f, width, height);
             drawRect(0f, 0f, width, height, 0f, 0f, 0f, 0.62f);
@@ -156,12 +157,12 @@ final class GameRenderer implements AutoCloseable {
     }
 
     /** Contador de quadros por segundo no canto superior direito. */
-    void drawFps(int fps, int width, int height) {
+    public void drawFps(int fps, int width, int height) {
         float s = scale(width, height);
         text("FPS " + fps, 15f * s, width - 14f * s, 18f * s, LABEL, 1f, 1f);
     }
 
-    void drawSplash(int width, int height, double elapsed) {
+    public void drawSplash(int width, int height, double elapsed) {
         float alpha;
         if (elapsed < 0.8) {
             alpha = smooth((float) (elapsed / 0.8));
@@ -178,7 +179,7 @@ final class GameRenderer implements AutoCloseable {
                 centerX + width * 0.13f * alpha, centerY + 39f, 0.24f, 0.82f, 1f, alpha * 0.8f);
     }
 
-    void drawTitle(int width, int height, float time, String[] options,
+    public void drawTitle(int width, int height, float time, String[] options,
                    int selectedOption, String statusMessage) {
         drawBackground(width, height);
 
@@ -218,7 +219,7 @@ final class GameRenderer implements AutoCloseable {
      *
      * @param anchor posição horizontal de {@code x} no texto: 0 esquerda, 0.5 centro, 1 direita
      */
-    void text(String text, float size, float x, float y, int color, float alpha, float anchor) {
+    public void text(String text, float size, float x, float y, int color, float alpha, float anchor) {
         int pixels = Math.max(1, Math.round(size));
         String key = text + '\u0000' + pixels;
         TextTexture texture = textTextures.computeIfAbsent(key, ignored -> createTextTexture(text, pixels));
@@ -231,19 +232,19 @@ final class GameRenderer implements AutoCloseable {
     }
 
     /** Retângulo preenchido. */
-    void fill(float x, float y, float width, float height, int color, float alpha) {
+    public void fill(float x, float y, float width, float height, int color, float alpha) {
         drawRect(x, y, x + width, y + height, ((color >> 16) & 0xFF) / 255f, ((color >> 8) & 0xFF) / 255f,
                 (color & 0xFF) / 255f, alpha);
     }
 
     /** Painel translúcido com borda, o fundo das telas de menu. */
-    void panel(float x, float y, float width, float height, float s) {
+    public void panel(float x, float y, float width, float height, float s) {
         fill(x, y, width, height, PANEL, 0.85f);
         outline(x, y, width, height, 2f * s, OUTLINE, 0.8f);
     }
 
     /** Contorno de um retângulo, com a espessura para dentro. */
-    void outline(float x, float y, float width, float height, float thickness, int color, float alpha) {
+    public void outline(float x, float y, float width, float height, float thickness, int color, float alpha) {
         fill(x, y, width, thickness, color, alpha);
         fill(x, y + height - thickness, width, thickness, color, alpha);
         fill(x, y + thickness, thickness, height - 2 * thickness, color, alpha);

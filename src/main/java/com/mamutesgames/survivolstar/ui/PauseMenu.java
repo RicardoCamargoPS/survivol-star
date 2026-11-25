@@ -1,5 +1,6 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.ui;
 
+import com.mamutesgames.survivolstar.render.GameRenderer;
 import java.util.function.Supplier;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -10,7 +11,7 @@ import static org.lwjgl.glfw.GLFW.*;
  * selecionado), pois o progresso não salvo se perde. Esc continua a partida (ou, numa
  * pergunta, responde "Não").
  */
-final class PauseMenu {
+public final class PauseMenu {
 
     private static final float PANEL_WIDTH = 480f;
     private static final float HEADER = 78f;
@@ -34,7 +35,7 @@ final class PauseMenu {
     /**
      * @param status linha de situação da partida (tempo, dificuldade)
      */
-    PauseMenu(Runnable resume, Runnable saveGame, Runnable openSettings, Runnable quitToTitle, Runnable exitGame,
+    public PauseMenu(Runnable resume, Runnable saveGame, Runnable openSettings, Runnable quitToTitle, Runnable exitGame,
               Supplier<String> status) {
         this.resume = resume;
         this.status = status;
@@ -53,14 +54,14 @@ final class PauseMenu {
     }
 
     /** Abre a pausa com "Continuar" selecionado. */
-    void open() {
+    public void open() {
         menu.select(0);
         closeQuestion();
         message = "";
     }
 
     /** Mostra o resultado de uma ação feita a partir da pausa (ex.: salvar). */
-    void showMessage(String text) {
+    public void showMessage(String text) {
         message = text;
     }
 
@@ -82,7 +83,7 @@ final class PauseMenu {
 
     // ---------------------------------------------------------------- entrada
 
-    void keyPressed(int key, boolean repeat) {
+    public void keyPressed(int key, boolean repeat) {
         MenuList list = activeList();
         switch (key) {
             case GLFW_KEY_ESCAPE, GLFW_KEY_BACKSPACE -> {
@@ -106,7 +107,7 @@ final class PauseMenu {
         }
     }
 
-    void mouseMoved(double x, double y) {
+    public void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
         MenuList list = activeList();
@@ -116,7 +117,7 @@ final class PauseMenu {
         }
     }
 
-    void mouseClicked() {
+    public void mouseClicked() {
         MenuList list = activeList();
         int row = list.rowAt(mouseX, mouseY);
         if (row >= 0) {
@@ -127,7 +128,7 @@ final class PauseMenu {
 
     // ---------------------------------------------------------------- desenho
 
-    void draw(GameRenderer r, int width, int height) {
+    public void draw(GameRenderer r, int width, int height) {
         float s = GameRenderer.scale(width, height);
         r.fill(0f, 0f, width, height, GameRenderer.SHADE, 0.55f);
 

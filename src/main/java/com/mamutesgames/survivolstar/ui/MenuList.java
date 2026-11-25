@@ -1,5 +1,6 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.ui;
 
+import com.mamutesgames.survivolstar.render.GameRenderer;
 import java.util.ArrayList;
 import java.util.List;
 

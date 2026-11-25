@@ -1,4 +1,4 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.ui;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;

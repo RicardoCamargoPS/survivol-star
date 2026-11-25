@@ -1,5 +1,6 @@
 package com.mamutesgames.survivolstar;
 
+import com.mamutesgames.survivolstar.core.Game;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 

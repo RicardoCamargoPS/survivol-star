@@ -1,5 +1,7 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.ui;
 
+import com.mamutesgames.survivolstar.GameInfo;
+import com.mamutesgames.survivolstar.render.GameRenderer;
 import com.mamutesgames.survivolstar.settings.Difficulty;
 import com.mamutesgames.survivolstar.settings.GameSettings;
 import com.mamutesgames.survivolstar.settings.Resolution;
@@ -17,7 +19,7 @@ import static org.lwjgl.glfw.GLFW.*;
  * levam o foco ao painel; Esc o devolve à lista, e Esc (ou "Voltar") na lista fecha as
  * configurações. Cada alteração é salva e as de vídeo aplicadas na hora.
  */
-final class SettingsMenu {
+public final class SettingsMenu {
 
     private static final float LIST_WIDTH = 260f;
     private static final float MARGIN = 60f;
@@ -77,7 +79,7 @@ final class SettingsMenu {
      * @param resolutions resoluções aceitas pelo monitor, começando pela nativa
      * @param close volta para a tela anterior
      */
-    SettingsMenu(GameSettings settings, Runnable onChange, Supplier<List<Resolution>> resolutions, Runnable close) {
+    public SettingsMenu(GameSettings settings, Runnable onChange, Supplier<List<Resolution>> resolutions, Runnable close) {
         this.settings = settings;
         this.onChange = onChange;
         this.resolutions = resolutions;
@@ -90,7 +92,7 @@ final class SettingsMenu {
     }
 
     /** Volta ao estado de entrada: seção Jogo, foco na lista. */
-    void reset() {
+    public void reset() {
         list.select(0);
         show(Tab.GAME);
     }
@@ -169,7 +171,7 @@ final class SettingsMenu {
     // ---------------------------------------------------------------- entrada
 
     /** @param repeat a tecla está sendo segurada (opções liga/desliga ignoram) */
-    void keyPressed(int key, boolean repeat) {
+    public void keyPressed(int key, boolean repeat) {
         if (sectionFocused) {
             sectionKey(key, repeat);
         } else {
@@ -244,7 +246,7 @@ final class SettingsMenu {
         }
     }
 
-    void mouseMoved(double x, double y) {
+    public void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
         int listRow = list.rowAt(x, y);
@@ -261,7 +263,7 @@ final class SettingsMenu {
         }
     }
 
-    void mouseClicked() {
+    public void mouseClicked() {
         int listRow = list.rowAt(mouseX, mouseY);
         if (listRow >= 0) {
             list.select(listRow);
@@ -283,7 +285,7 @@ final class SettingsMenu {
     }
 
     /** @param amount rolagem da roda; positivo = para cima */
-    void scrolled(double amount) {
+    public void scrolled(double amount) {
         int sectionRow = section.rowAt(mouseX, mouseY);
         if (sectionRow < 0 || amount == 0) {
             return;
@@ -298,7 +300,7 @@ final class SettingsMenu {
 
     // ---------------------------------------------------------------- desenho
 
-    void draw(GameRenderer r, int width, int height) {
+    public void draw(GameRenderer r, int width, int height) {
         float s = GameRenderer.scale(width, height);
         float margin = MARGIN * s;
         float listWidth = LIST_WIDTH * s;

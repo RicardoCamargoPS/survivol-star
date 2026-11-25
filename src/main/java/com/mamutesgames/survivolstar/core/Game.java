@@ -1,10 +1,16 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.core;
 
+import com.mamutesgames.survivolstar.GameInfo;
+import com.mamutesgames.survivolstar.game.GameSession;
+import com.mamutesgames.survivolstar.render.GameRenderer;
 import com.mamutesgames.survivolstar.save.SaveGame;
 import com.mamutesgames.survivolstar.save.SaveStore;
 import com.mamutesgames.survivolstar.settings.GameSettings;
 import com.mamutesgames.survivolstar.settings.Resolution;
 import com.mamutesgames.survivolstar.settings.SettingsStore;
+import com.mamutesgames.survivolstar.ui.PauseMenu;
+import com.mamutesgames.survivolstar.ui.SaveSlotsMenu;
+import com.mamutesgames.survivolstar.ui.SettingsMenu;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +20,7 @@ import org.lwjgl.glfw.GLFWVidMode;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
-final class Game implements AutoCloseable {
+public final class Game implements AutoCloseable {
 
     private static final double SPLASH_DURATION = 3.2;
     /** Ignora teclas nos primeiros instantes: a tecla que abriu o jogo não pula a abertura. */
@@ -68,7 +74,7 @@ final class Game implements AutoCloseable {
     private double fpsTimer;
     private int fps;
 
-    Game(long window) {
+    public Game(long window) {
         this.window = window;
         renderer = new GameRenderer();
         settings = settingsStore.load();
@@ -83,12 +89,12 @@ final class Game implements AutoCloseable {
         applyVideo();
     }
 
-    void resize(int width, int height) {
+    public void resize(int width, int height) {
         this.width = width;
         this.height = height;
     }
 
-    void update(float delta) {
+    public void update(float delta) {
         if (state == State.SPLASH) {
             splashElapsed += delta;
             if (splashElapsed >= SPLASH_DURATION) {
@@ -107,7 +113,7 @@ final class Game implements AutoCloseable {
     }
 
     /** @param repeat a tecla está sendo segurada */
-    void keyPressed(int key, boolean repeat) {
+    public void keyPressed(int key, boolean repeat) {
         switch (state) {
             case SPLASH -> {
                 if (!repeat) {
@@ -147,7 +153,7 @@ final class Game implements AutoCloseable {
         }
     }
 
-    void mouseMoved(double x, double y) {
+    public void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
         switch (state) {
@@ -165,13 +171,13 @@ final class Game implements AutoCloseable {
         }
     }
 
-    void mouseRightClicked() {
+    public void mouseRightClicked() {
         if (state == State.SAVE_SLOTS) {
             saveSlotsMenu.mouseRightClicked();
         }
     }
 
-    void mouseClicked() {
+    public void mouseClicked() {
         switch (state) {
             case SPLASH -> skipSplash();
             case SETTINGS -> settingsMenu.mouseClicked();
@@ -190,20 +196,20 @@ final class Game implements AutoCloseable {
     }
 
     /** @param amount rolagem vertical da roda; positivo = para cima */
-    void scrolled(double amount) {
+    public void scrolled(double amount) {
         if (state == State.SETTINGS) {
             settingsMenu.scrolled(amount);
         }
     }
 
     /** A janela perdeu o foco: uma partida em andamento pausa sozinha. */
-    void focusLost() {
+    public void focusLost() {
         if (state == State.PLAYING) {
             pause();
         }
     }
 
-    void render(float time) {
+    public void render(float time) {
         renderer.beginFrame(width, height);
         // Com uma partida aberta, a cena (congelada na pausa) fica atrás dos menus
         if (session != null) {

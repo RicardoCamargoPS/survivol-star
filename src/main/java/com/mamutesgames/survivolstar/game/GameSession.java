@@ -1,4 +1,4 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.game;
 
 import com.mamutesgames.survivolstar.save.SaveGame;
 import com.mamutesgames.survivolstar.settings.Difficulty;
@@ -8,7 +8,7 @@ import java.time.Instant;
  * Uma partida em andamento. Por enquanto a cena é só um cubo girando; a velocidade do giro
  * depende da dificuldade. O tempo de jogo só corre enquanto a partida não está pausada.
  */
-final class GameSession {
+public final class GameSession {
 
     private final Difficulty difficulty;
     private double playSeconds;
@@ -22,11 +22,11 @@ final class GameSession {
         this.angle = (float) (playSeconds * spinSpeed(difficulty) % 360.0);
     }
 
-    static GameSession start(Difficulty difficulty) {
+    public static GameSession start(Difficulty difficulty) {
         return new GameSession(difficulty, 0.0);
     }
 
-    static GameSession resume(SaveGame game) {
+    public static GameSession resume(SaveGame game) {
         return new GameSession(game.difficulty(), game.playSeconds());
     }
 
@@ -39,25 +39,25 @@ final class GameSession {
         };
     }
 
-    void update(float delta) {
+    public void update(float delta) {
         playSeconds += delta;
         angle = (angle + spinSpeed(difficulty) * delta) % 360f;
     }
 
-    float angle() {
+    public float angle() {
         return angle;
     }
 
-    Difficulty difficulty() {
+    public Difficulty difficulty() {
         return difficulty;
     }
 
-    double playSeconds() {
+    public double playSeconds() {
         return playSeconds;
     }
 
     /** Tempo de jogo como "mm:ss" ou "h:mm:ss". */
-    String playTimeText() {
+    public String playTimeText() {
         long total = (long) playSeconds;
         long hours = total / 3600;
         long minutes = total / 60 % 60;
@@ -67,7 +67,7 @@ final class GameSession {
     }
 
     /** O estado atual, para gravar num slot. */
-    SaveGame snapshot() {
+    public SaveGame snapshot() {
         return new SaveGame(Instant.now(), "Protótipo  ·  Cubo", difficulty, (long) playSeconds);
     }
 }

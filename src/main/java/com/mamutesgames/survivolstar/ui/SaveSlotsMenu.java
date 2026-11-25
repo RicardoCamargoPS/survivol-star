@@ -1,5 +1,6 @@
-package com.mamutesgames.survivolstar;
+package com.mamutesgames.survivolstar.ui;
 
+import com.mamutesgames.survivolstar.render.GameRenderer;
 import com.mamutesgames.survivolstar.save.SaveGame;
 import com.mamutesgames.survivolstar.save.SaveStore;
 import com.mamutesgames.survivolstar.save.SaveSummary;
@@ -21,9 +22,9 @@ import static org.lwjgl.glfw.GLFW.*;
  * </ul>
  * Nos dois modos Delete (ou botão direito) apaga um slot, depois de confirmar, e Esc volta.
  */
-final class SaveSlotsMenu {
+public final class SaveSlotsMenu {
 
-    enum Mode {
+    public enum Mode {
         LOAD,
         SAVE
     }
@@ -63,7 +64,7 @@ final class SaveSlotsMenu {
      * @param onSaved recebe o número do slot depois de salvar
      * @param close volta para a tela anterior
      */
-    SaveSlotsMenu(SaveStore store, BiConsumer<Integer, SaveGame> onLoad, Supplier<SaveGame> snapshot,
+    public SaveSlotsMenu(SaveStore store, BiConsumer<Integer, SaveGame> onLoad, Supplier<SaveGame> snapshot,
                   IntConsumer onSaved, Runnable close) {
         this.store = store;
         this.onLoad = onLoad;
@@ -82,7 +83,7 @@ final class SaveSlotsMenu {
      * Relê os jogos salvos e abre no modo pedido. Para carregar, seleciona o primeiro slot com
      * jogo; para salvar, o primeiro livre.
      */
-    void open(Mode mode) {
+    public void open(Mode mode) {
         this.mode = mode;
         refresh();
         pending = Pending.NONE;
@@ -181,7 +182,7 @@ final class SaveSlotsMenu {
 
     // ---------------------------------------------------------------- entrada
 
-    void keyPressed(int key, boolean repeat) {
+    public void keyPressed(int key, boolean repeat) {
         if (pending != Pending.NONE) {
             if (!repeat) {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
@@ -221,7 +222,7 @@ final class SaveSlotsMenu {
         message = "";
     }
 
-    void mouseMoved(double x, double y) {
+    public void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
         if (pending != Pending.NONE) {
@@ -234,7 +235,7 @@ final class SaveSlotsMenu {
         }
     }
 
-    void mouseClicked() {
+    public void mouseClicked() {
         if (pending != Pending.NONE) {
             pending = Pending.NONE;
             return;
@@ -248,7 +249,7 @@ final class SaveSlotsMenu {
     }
 
     /** Botão direito sobre um slot com jogo pede para apagá-lo. */
-    void mouseRightClicked() {
+    public void mouseRightClicked() {
         if (pending != Pending.NONE) {
             pending = Pending.NONE;
             return;
@@ -262,7 +263,7 @@ final class SaveSlotsMenu {
 
     // ---------------------------------------------------------------- desenho
 
-    void draw(GameRenderer r, int width, int height) {
+    public void draw(GameRenderer r, int width, int height) {
         float s = GameRenderer.scale(width, height);
         r.fill(0f, 0f, width, height, GameRenderer.SHADE, 0.45f);
 
