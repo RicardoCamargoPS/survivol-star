@@ -61,6 +61,11 @@ public final class Main {
                 activeGame.mouseMoved(x * scaleX, y * scaleY);
             });
             glfwSetScrollCallback(window, (handle, xOffset, yOffset) -> activeGame.scrolled(yOffset));
+            glfwSetWindowFocusCallback(window, (handle, focused) -> {
+                if (!focused) {
+                    activeGame.focusLost();
+                }
+            });
             glfwSetMouseButtonCallback(window, (handle, button, action, mods) -> {
                 if (action != GLFW_PRESS) {
                     return;

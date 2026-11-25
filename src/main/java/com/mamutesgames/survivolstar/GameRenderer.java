@@ -51,14 +51,100 @@ final class GameRenderer implements AutoCloseable {
     /** Prepara a projeção em pixels e limpa a tela. */
     void beginFrame(int width, int height) {
         glViewport(0, 0, width, height);
+        useScreenProjection(width, height);
+        glClearColor(0f, 0f, 0f, 1f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+
+    /** Projeção 2D em pixels, origem no canto superior esquerdo (textos e menus). */
+    private static void useScreenProjection(int width, int height) {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0, Math.max(width, 1), Math.max(height, 1), 0, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
+    }
 
-        glClearColor(0f, 0f, 0f, 1f);
-        glClear(GL_COLOR_BUFFER_BIT);
+    // ---------------------------------------------------------------- cena da partida
+
+    private static final int STAR_COUNT = 260;
+    /** Estrelas fixas: x e y (0..1), tamanho e fase da cintilação. */
+    private static final float[][] STARS = createStars();
+
+    private static float[][] createStars() {
+        java.util.Random random = new java.util.Random(20261125L);
+        float[][] stars = new float[STAR_COUNT][];
+        for (int i = 0; i < STAR_COUNT; i++) {
+            stars[i] = new float[] {random.nextFloat(), random.nextFloat(), 1f + random.nextFloat() * 1.6f,
+                    random.nextFloat() * 6.283f};
+        }
+        return stars;
+    }
+
+    /** Faces do cubo: 4 vértices cada (x, y, z) e o tom da face (luz fixa, sem iluminação do GL). */
+    private static final float[][] CUBE_FACES = {
+            {-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1},        // frente
+            {1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1},    // trás
+            {-1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1},        // cima
+            {-1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1},    // baixo
+            {1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1},        // direita
+            {-1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1}     // esquerda
+    };
+    private static final float[] CUBE_SHADES = {1f, 0.55f, 0.85f, 0.4f, 0.7f, 0.62f};
+
+    /**
+     * Cena da partida: um campo de estrelas cintilando e um cubo girando em perspectiva no
+     * centro. Volta à projeção 2D no fim, para o HUD e os menus.
+     *
+     * @param angle giro do cubo, em graus
+     */
+    void drawScene(int width, int height, float time, float angle) {
+        for (float[] star : STARS) {
+            float twinkle = 0.45f + 0.55f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + star[3]));
+            fill(star[0] * width, star[1] * height, star[2], star[2], TEXT, twinkle);
+        }
+
+        float aspect = Math.max(width, 1) / (float) Math.max(height, 1);
+        float near = 0.1f;
+        float top = near * (float) Math.tan(Math.toRadians(25.0));
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-top * aspect, top * aspect, -top, top, near, 50.0);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glTranslatef(0f, 0f, -5.5f);
+        glRotatef(20f + angle * 0.6f, 1f, 0f, 0f);
+        glRotatef(angle, 0f, 1f, 0f);
+
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1f, 1f);
+        glBegin(GL_QUADS);
+        for (int f = 0; f < CUBE_FACES.length; f++) {
+            float shade = CUBE_SHADES[f];
+            glColor4f(0.06f * shade, 0.32f * shade, 0.55f * shade, 1f);
+            float[] v = CUBE_FACES[f];
+            for (int i = 0; i < 12; i += 3) {
+                glVertex3f(v[i], v[i + 1], v[i + 2]);
+            }
+        }
+        glEnd();
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+        // Arestas acesas, pulsando devagar
+        float glow = 0.7f + 0.3f * (float) Math.sin(time * 2f);
+        glLineWidth(2f);
+        glColor4f(0.33f, 0.85f, 1f, glow);
+        for (float[] v : CUBE_FACES) {
+            glBegin(GL_LINE_LOOP);
+            for (int i = 0; i < 12; i += 3) {
+                glVertex3f(v[i], v[i + 1], v[i + 2]);
+            }
+            glEnd();
+        }
+        glLineWidth(1f);
+        glDisable(GL_DEPTH_TEST);
+        useScreenProjection(width, height);
     }
 
     /** Imagem de fundo da tela de título (se existir), escurecida para o texto ficar legível. */

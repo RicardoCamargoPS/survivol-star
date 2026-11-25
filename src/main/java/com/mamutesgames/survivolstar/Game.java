@@ -34,17 +34,25 @@ final class Game implements AutoCloseable {
         SPLASH,
         TITLE,
         SETTINGS,
-        LOAD_GAME
+        SAVE_SLOTS,
+        PLAYING,
+        PAUSED
     }
 
     private final long window;
     private final GameRenderer renderer;
     private final SettingsStore settingsStore = new SettingsStore(GameInfo.settingsFile());
     private final GameSettings settings;
-    private final List<Resolution> resolutions;
+    private final List<Resolution> fullscreenResolutions;
+    private final List<Resolution> windowedResolutions;
     private final SettingsMenu settingsMenu;
-    private final LoadGameMenu loadGameMenu;
+    private final SaveSlotsMenu saveSlotsMenu;
+    private final PauseMenu pauseMenu;
     private State state = State.SPLASH;
+    /** Para onde voltam as configurações e os slots: o título ou a pausa. */
+    private State returnState = State.TITLE;
+    /** Partida em andamento (jogando ou pausada), ou {@code null}. */
+    private GameSession session;
     private int width;
     private int height;
     private int selectedOption;
@@ -64,11 +72,14 @@ final class Game implements AutoCloseable {
         this.window = window;
         renderer = new GameRenderer();
         settings = settingsStore.load();
-        resolutions = findResolutions();
-        settingsMenu = new SettingsMenu(settings, this::applySettings, () -> resolutions,
-                () -> state = State.TITLE);
-        loadGameMenu = new LoadGameMenu(new SaveStore(GameInfo.savesDirectory()), this::gameLoaded,
-                () -> state = State.TITLE);
+        fullscreenResolutions = findResolutions(false);
+        windowedResolutions = findResolutions(true);
+        settingsMenu = new SettingsMenu(settings, this::applySettings, this::resolutions,
+                () -> state = returnState);
+        saveSlotsMenu = new SaveSlotsMenu(new SaveStore(GameInfo.savesDirectory()), this::gameLoaded,
+                () -> session.snapshot(), this::gameSaved, () -> state = returnState);
+        pauseMenu = new PauseMenu(this::resume, this::openSaveSlots, this::openSettingsFromPause,
+                this::quitToTitle, () -> glfwSetWindowShouldClose(window, true), this::pauseStatus);
         applyVideo();
     }
 
@@ -83,6 +94,8 @@ final class Game implements AutoCloseable {
             if (splashElapsed >= SPLASH_DURATION) {
                 state = State.TITLE;
             }
+        } else if (state == State.PLAYING) {
+            session.update(delta);
         }
         frames++;
         fpsTimer += delta;
@@ -101,9 +114,15 @@ final class Game implements AutoCloseable {
                     skipSplash();
                 }
             }
-            case SETTINGS -> settingsMenu.keyPressed(key, repeat);
-            case LOAD_GAME -> loadGameMenu.keyPressed(key, repeat);
             case TITLE -> titleKey(key, repeat);
+            case SETTINGS -> settingsMenu.keyPressed(key, repeat);
+            case SAVE_SLOTS -> saveSlotsMenu.keyPressed(key, repeat);
+            case PLAYING -> {
+                if (key == GLFW_KEY_ESCAPE && !repeat) {
+                    pause();
+                }
+            }
+            case PAUSED -> pauseMenu.keyPressed(key, repeat);
             default -> throw new IllegalStateException("Estado desconhecido: " + state);
         }
     }
@@ -131,21 +150,24 @@ final class Game implements AutoCloseable {
     void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
-        if (state == State.TITLE) {
-            int hoveredOption = optionAt(x, y);
-            if (hoveredOption >= 0) {
-                selectedOption = hoveredOption;
+        switch (state) {
+            case TITLE -> {
+                int hoveredOption = optionAt(x, y);
+                if (hoveredOption >= 0) {
+                    selectedOption = hoveredOption;
+                }
             }
-        } else if (state == State.SETTINGS) {
-            settingsMenu.mouseMoved(x, y);
-        } else if (state == State.LOAD_GAME) {
-            loadGameMenu.mouseMoved(x, y);
+            case SETTINGS -> settingsMenu.mouseMoved(x, y);
+            case SAVE_SLOTS -> saveSlotsMenu.mouseMoved(x, y);
+            case PAUSED -> pauseMenu.mouseMoved(x, y);
+            default -> {
+            }
         }
     }
 
     void mouseRightClicked() {
-        if (state == State.LOAD_GAME) {
-            loadGameMenu.mouseRightClicked();
+        if (state == State.SAVE_SLOTS) {
+            saveSlotsMenu.mouseRightClicked();
         }
     }
 
@@ -153,7 +175,8 @@ final class Game implements AutoCloseable {
         switch (state) {
             case SPLASH -> skipSplash();
             case SETTINGS -> settingsMenu.mouseClicked();
-            case LOAD_GAME -> loadGameMenu.mouseClicked();
+            case SAVE_SLOTS -> saveSlotsMenu.mouseClicked();
+            case PAUSED -> pauseMenu.mouseClicked();
             case TITLE -> {
                 int clickedOption = optionAt(mouseX, mouseY);
                 if (clickedOption >= 0) {
@@ -161,7 +184,8 @@ final class Game implements AutoCloseable {
                     activateSelection();
                 }
             }
-            default -> throw new IllegalStateException("Estado desconhecido: " + state);
+            default -> {
+            }
         }
     }
 
@@ -172,24 +196,42 @@ final class Game implements AutoCloseable {
         }
     }
 
+    /** A janela perdeu o foco: uma partida em andamento pausa sozinha. */
+    void focusLost() {
+        if (state == State.PLAYING) {
+            pause();
+        }
+    }
+
     void render(float time) {
         renderer.beginFrame(width, height);
+        // Com uma partida aberta, a cena (congelada na pausa) fica atrás dos menus
+        if (session != null) {
+            renderer.drawScene(width, height, time, session.angle());
+        } else if (state != State.SPLASH && state != State.TITLE) {
+            renderer.drawBackground(width, height);
+        }
         switch (state) {
             case SPLASH -> renderer.drawSplash(width, height, splashElapsed);
             case TITLE -> renderer.drawTitle(width, height, time, MENU_OPTIONS, selectedOption, statusMessage);
-            case SETTINGS -> {
-                renderer.drawBackground(width, height);
-                settingsMenu.draw(renderer, width, height);
-            }
-            case LOAD_GAME -> {
-                renderer.drawBackground(width, height);
-                loadGameMenu.draw(renderer, width, height);
-            }
+            case SETTINGS -> settingsMenu.draw(renderer, width, height);
+            case SAVE_SLOTS -> saveSlotsMenu.draw(renderer, width, height);
+            case PLAYING -> drawHud();
+            case PAUSED -> pauseMenu.draw(renderer, width, height);
             default -> throw new IllegalStateException("Estado desconhecido: " + state);
         }
         if (settings.showFps()) {
             renderer.drawFps(fps, width, height);
         }
+    }
+
+    /** Tempo de jogo e dificuldade no canto, e como pausar embaixo. */
+    private void drawHud() {
+        float s = GameRenderer.scale(width, height);
+        renderer.text(session.playTimeText(), 26f * s, 24f * s, 30f * s, GameRenderer.TEXT, 1f, 0f);
+        renderer.text(session.difficulty().label().toUpperCase(java.util.Locale.ROOT), 14f * s, 26f * s, 58f * s,
+                GameRenderer.LABEL, 1f, 0f);
+        renderer.text("Esc  ·  Pausar", 15f * s, width * 0.5f, height - 24f * s, GameRenderer.LABEL, 0.8f, 0.5f);
     }
 
     private int optionAt(double x, double y) {
@@ -207,25 +249,69 @@ final class Game implements AutoCloseable {
 
     private void activateSelection() {
         statusMessage = "";
+        returnState = State.TITLE;
         switch (selectedOption) {
-            case 0 -> statusMessage = "Novo jogo - em desenvolvimento";
+            case 0 -> startSession(GameSession.start(settings.difficulty()));
             case 1 -> {
                 settingsMenu.reset();
                 state = State.SETTINGS;
             }
             case 2 -> {
-                loadGameMenu.open();
-                state = State.LOAD_GAME;
+                saveSlotsMenu.open(SaveSlotsMenu.Mode.LOAD);
+                state = State.SAVE_SLOTS;
             }
             case 3 -> glfwSetWindowShouldClose(window, true);
             default -> throw new IllegalStateException("Opção de menu desconhecida: " + selectedOption);
         }
     }
 
-    /** Jogo lido de um slot. A partida ainda não existe: por enquanto volta ao título avisando. */
+    // ---------------------------------------------------------------- partida
+
+    private void startSession(GameSession newSession) {
+        session = newSession;
+        state = State.PLAYING;
+    }
+
     private void gameLoaded(int slot, SaveGame game) {
+        startSession(GameSession.resume(game));
+    }
+
+    private void pause() {
+        pauseMenu.open();
+        state = State.PAUSED;
+    }
+
+    private void resume() {
+        state = State.PLAYING;
+    }
+
+    private void openSaveSlots() {
+        returnState = State.PAUSED;
+        saveSlotsMenu.open(SaveSlotsMenu.Mode.SAVE);
+        state = State.SAVE_SLOTS;
+    }
+
+    private void gameSaved(int slot) {
+        pauseMenu.showMessage("Jogo salvo no slot " + slot + ".");
+        state = State.PAUSED;
+    }
+
+    private void openSettingsFromPause() {
+        returnState = State.PAUSED;
+        settingsMenu.reset();
+        state = State.SETTINGS;
+    }
+
+    private void quitToTitle() {
+        session = null;
+        returnState = State.TITLE;
+        selectedOption = 0;
+        statusMessage = "";
         state = State.TITLE;
-        statusMessage = "Jogo do slot " + slot + " carregado - partida em desenvolvimento";
+    }
+
+    private String pauseStatus() {
+        return "Tempo de jogo " + session.playTimeText() + "  ·  " + session.difficulty().label();
     }
 
     // ---------------------------------------------------------------- configurações
@@ -240,9 +326,22 @@ final class Game implements AutoCloseable {
         }
     }
 
+    /**
+     * Resoluções oferecidas nas configurações: em tela cheia, todos os modos do monitor; em
+     * janela, só os tamanhos que cabem na área de trabalho (os maiores seriam cortados e
+     * ficariam todos iguais).
+     */
+    private List<Resolution> resolutions() {
+        return settings.fullscreen() ? fullscreenResolutions : windowedResolutions;
+    }
+
     private void applyVideo() {
         glfwSwapInterval(settings.vsync() ? 1 : 0);
         boolean fullscreen = settings.fullscreen();
+        if (!fullscreen && !windowedResolutions.contains(settings.resolution())) {
+            // Saiu da tela cheia com um tamanho que não cabe em janela: usa o maior que cabe
+            settings.setResolution(windowedResolutions.getLast());
+        }
         Resolution resolution = settings.resolution();
         if (appliedFullscreen != null && appliedFullscreen == fullscreen && resolution.equals(appliedResolution)) {
             return;
@@ -272,12 +371,15 @@ final class Game implements AutoCloseable {
 
     /**
      * Resoluções que o monitor principal aceita (sem repetir taxas de atualização), da menor
-     * para a maior, começando pela nativa. Inclui sempre 1280 × 720, o tamanho padrão da janela.
+     * para a maior, começando pela nativa. Inclui 1280 × 720, o tamanho padrão da janela.
+     *
+     * @param windowed só os tamanhos que cabem numa janela na área de trabalho
      */
-    private static List<Resolution> findResolutions() {
+    private static List<Resolution> findResolutions(boolean windowed) {
         TreeSet<Resolution> sizes = new TreeSet<>();
         sizes.add(Resolution.HD);
         long monitor = glfwGetPrimaryMonitor();
+        GLFWVidMode desktop = monitor == NULL ? null : glfwGetVideoMode(monitor);
         GLFWVidMode.Buffer modes = monitor == NULL ? null : glfwGetVideoModes(monitor);
         if (modes != null) {
             for (int i = 0; i < modes.limit(); i++) {
@@ -286,6 +388,10 @@ final class Game implements AutoCloseable {
                     sizes.add(new Resolution(mode.width(), mode.height()));
                 }
             }
+        }
+        if (windowed && desktop != null) {
+            int maxHeight = desktop.height() - WINDOW_DECORATION_MARGIN;
+            sizes.removeIf(size -> size.width() > desktop.width() || size.height() > maxHeight);
         }
         List<Resolution> result = new ArrayList<>();
         result.add(Resolution.NATIVE);

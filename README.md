@@ -29,9 +29,22 @@ o fundo permanece preto. Adicione uma imagem PNG nesse caminho para usá-la como
 - Setas para cima/baixo: navegar pelo menu.
 - Enter: selecionar a opção.
 - Mouse: passar sobre uma opção e clicar.
-- Esc: fechar o jogo.
+- Esc: no título, fecha o jogo; na partida, pausa.
 
-A opção de novo jogo exibe uma mensagem de preparação; a partida ainda não foi implementada.
+## Partida
+
+Por enquanto a partida é um protótipo: um cubo girando sobre um campo de estrelas, com o
+tempo de jogo e a dificuldade no canto. A velocidade do giro depende da dificuldade.
+
+## Pausa
+
+Esc durante a partida (ou a janela perder o foco) congela o jogo e abre o painel de pausa:
+
+- **Continuar** (ou Esc) volta à partida.
+- **Salvar jogo** abre a lista de slots; um slot ocupado pede confirmação antes de ser
+  sobrescrito.
+- **Configurações** abre as configurações e volta para a pausa ao sair.
+- **Menu principal** e **Sair do jogo** perguntam antes, pois o progresso não salvo se perde.
 
 ## Carregar jogo
 
@@ -39,10 +52,9 @@ Um painel com a lista dos 5 slots de jogo salvo, um por linha, com a data à dir
 vazios ficam em cinza e são pulados. Abaixo da lista aparece o progresso do slot selecionado
 (dificuldade, tempo de jogo e resumo).
 
-- Enter ou clique carregam o jogo; Delete ou botão direito apagam (pedindo confirmação);
-  Esc volta à tela de título.
+- Enter ou clique carregam o jogo e continuam a partida; Delete ou botão direito apagam
+  (pedindo confirmação); Esc volta à tela de título.
 - Os saves ficam em `~/.survivolstar/saves/slot1.properties` a `slot5.properties`.
-- Enquanto a partida não existe, carregar volta ao título com um aviso.
 
 ## Configurações
 

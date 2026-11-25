@@ -6,16 +6,34 @@ import com.mamutesgames.survivolstar.save.SaveSummary;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * Carregar jogo: um painel com a lista dos slots de jogo salvo, um por linha, com a data à
- * direita. Os slots vazios ficam em cinza e são pulados. Abaixo da lista aparece o progresso
- * do slot selecionado. Enter (ou clique) carrega; Delete (ou botão direito) apaga, depois de
- * confirmar; Esc volta.
+ * Slots de jogo salvo: um painel com a lista dos slots, um por linha, com a data à direita.
+ * Abaixo da lista aparece o progresso do slot selecionado.
+ * <ul>
+ * <li>Para carregar, os slots vazios ficam em cinza e são pulados; Enter (ou clique) carrega.</li>
+ * <li>Para salvar, todos ficam disponíveis; um slot ocupado pede confirmação antes de ser
+ * sobrescrito.</li>
+ * </ul>
+ * Nos dois modos Delete (ou botão direito) apaga um slot, depois de confirmar, e Esc volta.
  */
-final class LoadGameMenu {
+final class SaveSlotsMenu {
+
+    enum Mode {
+        LOAD,
+        SAVE
+    }
+
+    /** Ação esperando confirmação. */
+    private enum Pending {
+        NONE,
+        DELETE,
+        OVERWRITE
+    }
 
     private static final float PANEL_WIDTH = 760f;
     private static final float HEADER = 78f;
@@ -25,11 +43,15 @@ final class LoadGameMenu {
 
     private final SaveStore store;
     private final BiConsumer<Integer, SaveGame> onLoad;
+    private final Supplier<SaveGame> snapshot;
+    private final IntConsumer onSaved;
     private final Runnable close;
     private final MenuList list = new MenuList();
+    private Mode mode = Mode.LOAD;
     private List<SaveSummary> slots = List.of();
-    /** Slot esperando a confirmação para ser apagado, ou 0. */
-    private int pendingDelete;
+    private Pending pending = Pending.NONE;
+    /** Slot da ação esperando confirmação. */
+    private int pendingSlot;
     /** Resultado da última ação (ex.: "Jogo do slot 2 apagado."), ou vazio. */
     private String message = "";
     private double mouseX;
@@ -37,32 +59,56 @@ final class LoadGameMenu {
 
     /**
      * @param onLoad recebe o número do slot e o jogo lido dele
+     * @param snapshot o jogo atual, para salvar
+     * @param onSaved recebe o número do slot depois de salvar
      * @param close volta para a tela anterior
      */
-    LoadGameMenu(SaveStore store, BiConsumer<Integer, SaveGame> onLoad, Runnable close) {
+    SaveSlotsMenu(SaveStore store, BiConsumer<Integer, SaveGame> onLoad, Supplier<SaveGame> snapshot,
+                  IntConsumer onSaved, Runnable close) {
         this.store = store;
         this.onLoad = onLoad;
+        this.snapshot = snapshot;
+        this.onSaved = onSaved;
         this.close = close;
         for (int i = 0; i < SaveStore.SLOTS; i++) {
             int index = i;
-            list.add(MenuItem.detail("Slot " + (i + 1),
-                    () -> filled(index) ? slots.get(index).date() : "Vazio",
-                    () -> filled(index), () -> load(index + 1)));
+            list.add(MenuItem.detail("Slot " + (i + 1), () -> slotDetail(index),
+                    () -> mode == Mode.SAVE || filled(index), () -> choose(index + 1)));
         }
         list.add(MenuItem.action("Voltar", close));
     }
 
-    /** Relê os jogos salvos e seleciona o primeiro slot com jogo. Chamado ao abrir a tela. */
-    void open() {
+    /**
+     * Relê os jogos salvos e abre no modo pedido. Para carregar, seleciona o primeiro slot com
+     * jogo; para salvar, o primeiro livre.
+     */
+    void open(Mode mode) {
+        this.mode = mode;
         refresh();
-        pendingDelete = 0;
+        pending = Pending.NONE;
         message = "";
-        list.select(0);
+        list.select(initialFocus());
         list.ensureSelectable();
+    }
+
+    private int initialFocus() {
+        for (int i = 0; i < slots.size(); i++) {
+            if (slots.get(i).present() == (mode == Mode.LOAD)) {
+                return i;
+            }
+        }
+        return mode == Mode.LOAD ? SaveStore.SLOTS : 0;
     }
 
     private void refresh() {
         slots = store.summaries();
+    }
+
+    private String slotDetail(int index) {
+        if (filled(index)) {
+            return slots.get(index).date();
+        }
+        return mode == Mode.LOAD ? "Vazio" : "Livre";
     }
 
     private boolean filled(int index) {
@@ -79,6 +125,17 @@ final class LoadGameMenu {
         return index < SaveStore.SLOTS ? index : -1;
     }
 
+    private void choose(int slot) {
+        if (mode == Mode.LOAD) {
+            load(slot);
+        } else if (filled(slot - 1)) {
+            pending = Pending.OVERWRITE;
+            pendingSlot = slot;
+        } else {
+            save(slot);
+        }
+    }
+
     private void load(int slot) {
         store.load(slot).ifPresentOrElse(game -> onLoad.accept(slot, game), () -> {
             // O arquivo sumiu ou corrompeu desde que a lista foi lida
@@ -87,22 +144,36 @@ final class LoadGameMenu {
         });
     }
 
+    private void save(int slot) {
+        try {
+            store.save(slot, snapshot.get());
+            onSaved.accept(slot);
+        } catch (IOException e) {
+            message = "Não foi possível salvar no slot " + slot + ": " + e.getMessage();
+        }
+    }
+
     private void askDelete() {
         int index = selectedSlot();
         if (index >= 0 && filled(index)) {
-            pendingDelete = index + 1;
+            pending = Pending.DELETE;
+            pendingSlot = index + 1;
             message = "";
         }
     }
 
-    private void confirmDelete() {
-        int slot = pendingDelete;
-        pendingDelete = 0;
+    private void confirm() {
+        Pending action = pending;
+        pending = Pending.NONE;
+        if (action == Pending.OVERWRITE) {
+            save(pendingSlot);
+            return;
+        }
         try {
-            store.delete(slot);
-            message = "Jogo do slot " + slot + " apagado.";
+            store.delete(pendingSlot);
+            message = "Jogo do slot " + pendingSlot + " apagado.";
         } catch (IOException e) {
-            message = "Não foi possível apagar o slot " + slot + ": " + e.getMessage();
+            message = "Não foi possível apagar o slot " + pendingSlot + ": " + e.getMessage();
         }
         refresh();
         list.ensureSelectable();
@@ -111,12 +182,12 @@ final class LoadGameMenu {
     // ---------------------------------------------------------------- entrada
 
     void keyPressed(int key, boolean repeat) {
-        if (pendingDelete > 0) {
+        if (pending != Pending.NONE) {
             if (!repeat) {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
-                    confirmDelete();
+                    confirm();
                 } else {
-                    pendingDelete = 0;
+                    pending = Pending.NONE;
                 }
             }
             return;
@@ -153,7 +224,7 @@ final class LoadGameMenu {
     void mouseMoved(double x, double y) {
         mouseX = x;
         mouseY = y;
-        if (pendingDelete > 0) {
+        if (pending != Pending.NONE) {
             return;
         }
         int row = list.rowAt(x, y);
@@ -164,8 +235,8 @@ final class LoadGameMenu {
     }
 
     void mouseClicked() {
-        if (pendingDelete > 0) {
-            pendingDelete = 0;
+        if (pending != Pending.NONE) {
+            pending = Pending.NONE;
             return;
         }
         int row = list.rowAt(mouseX, mouseY);
@@ -178,8 +249,8 @@ final class LoadGameMenu {
 
     /** Botão direito sobre um slot com jogo pede para apagá-lo. */
     void mouseRightClicked() {
-        if (pendingDelete > 0) {
-            pendingDelete = 0;
+        if (pending != Pending.NONE) {
+            pending = Pending.NONE;
             return;
         }
         int row = list.rowAt(mouseX, mouseY);
@@ -202,25 +273,34 @@ final class LoadGameMenu {
         r.panel(x, y, panelWidth, panelHeight, s);
 
         float cx = x + panelWidth * 0.5f;
-        r.text("CARREGAR JOGO", 34f * s, cx, y + 44f * s, GameRenderer.CYAN, 1f, 0.5f);
+        r.text(mode == Mode.LOAD ? "CARREGAR JOGO" : "SALVAR JOGO", 34f * s, cx, y + 44f * s,
+                GameRenderer.CYAN, 1f, 0.5f);
         r.fill(cx - 60f * s, y + 68f * s, 120f * s, 2f * s, GameRenderer.ACCENT, 0.85f);
 
         float top = y + (HEADER + PADDING) * s;
-        list.setActive(pendingDelete == 0);
+        list.setActive(pending == Pending.NONE);
         list.draw(r, x + PADDING * s, top, panelWidth - 2 * PADDING * s, s);
 
         float infoTop = top + list.height(s) + 10f * s;
         float line1 = infoTop + INFO_LINE * 0.5f * s;
         float line2 = line1 + INFO_LINE * s;
-        if (pendingDelete > 0) {
-            r.text("Apagar o jogo do slot " + pendingDelete + "?", 18f * s, cx, line1,
-                    GameRenderer.WARNING, 1f, 0.5f);
+        if (pending != Pending.NONE) {
+            String question = pending == Pending.DELETE
+                    ? "Apagar o jogo do slot " + pendingSlot + "?"
+                    : "Sobrescrever o jogo do slot " + pendingSlot + "?";
+            r.text(question, 18f * s, cx, line1, GameRenderer.WARNING, 1f, 0.5f);
             r.text("Enter confirma  ·  Esc cancela", 15f * s, cx, line2, GameRenderer.LABEL, 1f, 0.5f);
             return;
         }
         r.text(infoText(), 17f * s, cx, line1, GameRenderer.TEXT, 1f, 0.5f);
-        r.text(hasAnySave() ? "Enter carrega  ·  Delete ou botão direito apaga  ·  Esc volta" : "Esc volta",
-                15f * s, cx, line2, GameRenderer.LABEL, 1f, 0.5f);
+        r.text(hint(), 15f * s, cx, line2, GameRenderer.LABEL, 1f, 0.5f);
+    }
+
+    private String hint() {
+        String delete = hasAnySave() ? "  ·  Delete ou botão direito apaga" : "";
+        return mode == Mode.LOAD
+                ? (hasAnySave() ? "Enter carrega" + delete + "  ·  Esc volta" : "Esc volta")
+                : "Enter salva" + delete + "  ·  Esc volta";
     }
 
     /** Primeira linha abaixo da lista: a mensagem da última ação ou o progresso do slot. */
@@ -228,7 +308,7 @@ final class LoadGameMenu {
         if (!message.isEmpty()) {
             return message;
         }
-        if (!hasAnySave()) {
+        if (mode == Mode.LOAD && !hasAnySave()) {
             return "Nenhum jogo salvo ainda.";
         }
         int index = selectedSlot();
